@@ -11,6 +11,8 @@
 #include <QTextStream>
 #include <QMessageBox>
 #include <math.h>
+#include <QCoreApplication>
+#include <QFont>
 
 const int mazeHard = 3;
 
@@ -24,8 +26,7 @@ Maze::Maze(int xMax, int yMax, QWidget* parent):
 { 
     for (int x = 0; x <= cellDataX - 1; x++)
          for (int y = 0; y <= cellDataY - 1; y++)
-	      cellData [x][y] = new MazeCell (x * CellWidth + 1, y * CellHeight + 1, 
-				              CellWidth,     CellHeight,
+	      cellData [x][y] = new MazeCell (x * CellWidth + 1, y * CellHeight + 1,
 			                      this);
               
     cellData [0][0] -> state                         = CellStates::start;
@@ -34,6 +35,8 @@ Maze::Maze(int xMax, int yMax, QWidget* parent):
     setGeometry           (9, 9, CellWidth * cellDataX + 1, CellWidth * cellDataY + 1);
     setPalette            (QPalette(QColor(230, 230, 230)));
     setAutoFillBackground (true);
+    setMinimumSize(600, 500);
+    setMaximumSize(600, 500);
 }
 
 void Maze::paintEvent  (QPaintEvent*)
@@ -45,20 +48,6 @@ void Maze::paintEvent  (QPaintEvent*)
     painter.translate  (0, 0);
     painter.drawRect   (QRect(0, 0, 600, 500));
 }
-
-void Maze::loadMaze ()
-{
-    QFile f        ("/home/nexx0f/projects/win32/maze/build/maze.txt");
-    f.open         (QIODevice::ReadOnly);
-    QTextStream in (&f);
-    
-    for (int y = 0; y < cellDataY; y++)
-         for (int x = 0; x < cellDataX; x++)
-              in >> cellData [x][y] -> state;
-    
-    f.close();     
-    
-}  
 
 QPoint Maze::getStartPoint ()
 {   
@@ -254,8 +243,7 @@ Maze::~Maze()
 {}
 //----------------------------------
 //MazeCell functions----------------
-MazeCell::MazeCell(int newX,     int newY, 
-		   int width, int height,
+MazeCell::MazeCell(int newX,     int newY,
 		   QWidget* parent): 
     QWidget (parent),
     x       (newX),
@@ -263,7 +251,7 @@ MazeCell::MazeCell(int newX,     int newY,
     state   (CellStates::wall)
                    
 {
-    setGeometry           (x, y, width, height);
+    setGeometry           (x, y, CellWidth, CellHeight);
 }
 
 void MazeCell::paintEvent ( QPaintEvent* )
@@ -309,17 +297,28 @@ Researcher::Researcher (Maze* newMaze, Console* newConsole, QWidget* parent):
     maze    (newMaze),
     console (newConsole),
     QWidget (parent)
-{
+{   
     state = ResearcherStates::initializing;
-    console -> printText ("Researcher state - Initialising\n");
+    detailedDump = false;
+    
+    console -> printText ("Researcher state - Initialising");
     
     x  = maze -> getStartPoint().x();
-    y  = maze -> getStartPoint().y();    
-    setGeometry (10 + x * 20, 10 + y * 20, CellWidth, CellHeight);
+    y  = maze -> getStartPoint().y(); 
+    
+    myParent = parent;
+              
+    setGeometry (maze -> mapTo (myParent, QPoint (0, 0)).x() + x * 20, maze -> mapTo (myParent, QPoint (0, 0)).y () + y * 20, CellWidth, CellHeight);
     vector = {0, -1};
     
+    update ();
+    
+    if (detailedDump) console -> printText ("Start x = %d, start y = %d\n"
+                                            "Start direction vector = {0, -1}");
+    
     state = ResearcherStates::waiting;
-    console -> printText ("Researcher initialised...\n\n"
+    
+    console -> printText ("State - {initialising -> waiting}. Transition - initialised\n"
                           "Researcher state - Waiting");
 }
 
@@ -327,7 +326,7 @@ void Researcher::updatePosition (int newX, int newY)
 {
     x = newX;
     y = newY;
-    setGeometry (10 + x * 20, 10 + y * 20, CellWidth, CellHeight); 
+    setGeometry (maze -> mapTo (myParent, QPoint (0, 0)).x() + x * 20, maze -> mapTo (myParent, QPoint (0, 0)).y()+ y * 20, CellWidth, CellHeight); 
     update ();
 }
 
@@ -339,13 +338,6 @@ void Researcher::paintEvent (QPaintEvent*)
     painter.setPen    (Qt::NoPen);
     painter.setBrush  (Qt::blue);
     
-    //const QPoint points[4] = 
-    //{
-      //  QPoint (CellWidth/2, 0),
-     //   QPoint (CellWidth,   CellHeight/2),
-    //    QPoint (CellWidth/2, CellHeight),
-   //     QPoint (0,           CellHeight/2)
-  //  };
     const QPoint points [3] =
     {
         QPoint (CellWidth/2,     0),
@@ -357,8 +349,7 @@ void Researcher::paintEvent (QPaintEvent*)
     {
         QPoint (4/10 * CellWidth, CellHeight/2),
         QPoint (6/10 * CellWidth, CellHeight/2),
-        QPoint (6/10 * CellWidth, CellHeight),
-      //  QPoint (4/10 * CellWidth, CellHeight)
+        QPoint (6/10 * CellWidth, CellHeight)
     };    
     
     int alpha = 0;
@@ -375,24 +366,39 @@ void Researcher::paintEvent (QPaintEvent*)
     painter.translate (-CellWidth/2, -CellHeight/2);
     
      painter.drawPolygon (points, 3);
+     for (int cx = 0; cx < 30; cx++)
+         for (int cy = 0; cy < 25; cy++)
+              journey [cx][cy] -> setGeometry (maze -> getPositionCell(cx, cy) -> x + maze -> mapTo (myParent, QPoint(0, 0)).x(),
+                                               maze -> getPositionCell(cx, cy) -> y + maze -> mapTo (myParent, QPoint(0, 0)).y(),
+                                               20, 20);   
+     updatePosition (x, y);
    // painter.drawPolygon (points2, 3);
 }
 
 void Researcher::processStep ()
 {
-    if (state == ResearcherStates::searchingWay)
+    if (state == ResearcherStates::waiting)
     {  
+        state = ResearcherStates::searchingWay;
+        
+        console -> printText ("State - {waiting -> searching way}. Transition - command.");
         console -> printText ("Researcher state - Searching way...");
+        
+        Vector oldVector = vector;
+        
+        int cell = 0;
         
         if (maze -> getLeftCell    (x, y, vector) -> state != CellStates::wall)
         {
             int newVectorX = (maze -> getLeftCell    (x, y, vector) -> x - 1)/CellWidth  - x; 
             int newVectorY = (maze -> getLeftCell    (x, y, vector) -> y - 1)/CellHeight - y;
             vector = {newVectorX, newVectorY};
+            cell = 1;
         }
         else
         if (maze -> getForwardCell (x, y, vector) -> state != CellStates::wall)
         {
+            cell = 2;
         }
         else
         if (maze -> getRightCell   (x, y, vector) -> state != CellStates::wall)
@@ -400,35 +406,86 @@ void Researcher::processStep ()
             int newVectorX = (maze -> getRightCell    (x, y, vector) -> x - 1)/CellWidth - x; 
             int newVectorY = (maze -> getRightCell    (x, y, vector) -> y - 1)/CellHeight - y;
             vector = {newVectorX, newVectorY};
+            cell = 3;
         }  
         else
         {
             vector.x *= -1;
             vector.y *= -1;
+            cell = 4;
         }
         
+        //A lot of "ifs" to check all variants of walking in the maze
+        //I'm really sorry =(
+        
+        if ((oldVector.x == 1  && oldVector.y == 0)  &&
+            (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::leftUp] = true;}
+        if ((oldVector.x == 1  && oldVector.y == 0)  &&
+            (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::leftRight] = true;}
+        if ((oldVector.x == 1  && oldVector.y == 0)  &&
+            (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::leftDown] = true;}
+        if ((oldVector.x == 1  && oldVector.y == 0)  &&
+            (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::leftLeft] = true;}     
+            
+        if ((oldVector.x == 0  && oldVector.y == 1)  &&
+            (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::upRight] = true;}
+        if ((oldVector.x == 0  && oldVector.y == 1)  &&
+            (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::upDown] = true;}
+        if ((oldVector.x == 0  && oldVector.y == 1)  &&
+            (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::upLeft] = true;}
+        if ((oldVector.x == 0  && oldVector.y == 1)  &&
+            (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::upUp] = true;}             
+
+        if ((oldVector.x == -1 && oldVector.y == 0)  &&
+            (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::rightDown] = true;}
+        if ((oldVector.x == -1 && oldVector.y == 0)  &&
+            (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::rightLeft] = true;}
+        if ((oldVector.x == -1 && oldVector.y == 0)  &&
+            (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::rightUp] = true;}
+        if ((oldVector.x == -1 && oldVector.y == 0)  &&
+            (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::rightRight] = true;}   
+            
+        if ((oldVector.x == 0  && oldVector.y == -1) &&
+            (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::downLeft] = true;}
+        if ((oldVector.x == 0  && oldVector.y == -1) &&
+            (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::downUp] = true;}
+        if ((oldVector.x == 0  && oldVector.y == -1) &&
+            (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::downRight] = true;}
+        if ((oldVector.x == 0  && oldVector.y == -1) &&
+            (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::downDown] = true;}            
+        
         updatePosition (x + vector.x, y + vector.y);    
+        
         
         if (maze -> getPositionCell(x, y) -> state == CellStates::finish)
         {
             state = ResearcherStates::finishFound;
-            QTextStream out (stdout);
-            console -> printText ("FINISH FOUND----\n"
-                                  "Researcher state - finish found\n"
-                                  "Finish x = %d, Finish y = %d\n", x, y);
+            
+            if (detailedDump) console -> printText ("FINISH FOUND----\n"
+                                                    "Researcher state - finish found\n"
+                                                    "Finish x = %d, Finish y = %d\n", x, y);
             
             emit researcherFoundFinish ();
             
             return;
         }
         
-        QTextStream out (stdout);
-        console -> printText ("Researcher updated\n"
-                              "New x = %d, new y = %d. "
-                              "Direction vector = {%d, %d}", x, y, vector.x, vector.y);   
+        if (detailedDump) console -> printText ("Researcher updated\n"
+                                                "New x = %d, new y = %d. "
+                                                "Direction vector = {%d, %d}", x, y, vector.x, vector.y);   
+        
+        state = ResearcherStates::waiting;
+        
+        if (cell == 1) console -> printText ("State - {searching way -> waiting}. Transition - Left");
+        else
+        if (cell == 2) console -> printText ("State - {searching way -> waiting}. Transition - Straight");
+        else
+        if (cell == 3) console -> printText ("State - {searching way -> waiting}. Transition - Right");
+        else           console -> printText ("State - {searching way -> waiting}. Transition - Behind");
         
         console -> printText ("Researcher state - waiting...");
     }
+    
     if (state == ResearcherStates::finishFound)
     {
         //Nothing to do
@@ -444,10 +501,46 @@ void Researcher::generateMaze()
     maze -> generate ();
     
     state = ResearcherStates::initializing;
+    
     updatePosition (maze -> getStartPoint().x(), maze -> getStartPoint().y());
+    clearJourney ();
     vector = {0, -1};
-    state = ResearcherStates::searchingWay;    
+    state = ResearcherStates::waiting;    
+    
 }
+
+void Researcher::returnToStart()
+{    
+    state = ResearcherStates::initializing;
+    
+    updatePosition (maze -> getStartPoint().x(), maze -> getStartPoint().y());
+    clearJourney ();
+    vector = {0, -1};
+    state = ResearcherStates::waiting;    
+    
+}
+
+void Researcher::clearJourney ()
+{
+    for (int cx = 0; cx < 30; cx++)
+         for (int cy = 0; cy < 25; cy++)
+         {
+              journey [cx][cy] -> clearWayCell ();
+              journey [cx][cy] -> update ();
+         }
+}
+
+void Researcher::simpleDump()
+{
+    detailedDump = false;
+}
+
+void Researcher::notSimpleDump()
+{
+    detailedDump = true;
+}
+
+
 
 Researcher::~Researcher ()
 {}
@@ -456,12 +549,176 @@ Researcher::~Researcher ()
 
 Console::Console (QWidget* parent) : QPlainTextEdit (parent)
 {
-   setReadOnly (true);
+    readOnly (false);
+    
+    prompt = "user> ";
+    
+    palette.setColor(QPalette::Text, Qt::darkRed);
+    setPalette (palette);
+    
+    format.setForeground (Qt::darkRed);
+    
+    insertPlainText (prompt);
+    
+    text   = "";
 }
 
+void Console::readOnly (bool read)
+{
+    readMode = read;
+    if (read)
+    {
+        while (textCursor().positionInBlock() > 0)
+             QPlainTextEdit::keyPressEvent (new QKeyEvent (QEvent::KeyPress, Qt::Key_Backspace, Qt::NoModifier));
+        setReadOnly (read);
+    }
+    else
+    {
+        insertPlainText (prompt + text);
+        setReadOnly (read);
+    }
+}
+
+void Console::keyPressEvent (QKeyEvent* event)
+{
+    if ((event -> key() >= 0x20 && event -> key() <= 0x7e) &&
+        (event -> modifiers() == Qt::NoModifier || event -> modifiers() == Qt::ShiftModifier))
+    {
+        text = text + event -> text();
+        QPlainTextEdit::keyPressEvent(event);
+    }
+ 
+    if(event -> key() == Qt::Key_Backspace &&
+       event -> modifiers() == Qt::NoModifier && 
+       textCursor().positionInBlock() > prompt.length())
+    { 
+        text.remove (text.length() - 1, 1);
+        QPlainTextEdit::keyPressEvent(event);
+    }
+    if(event->key() == Qt::Key_Return && event->modifiers() == Qt::NoModifier)
+        onEnter();    
+}
+
+void Console::onEnter ()
+{
+    QString str = text;
+    
+    while (textCursor().positionInBlock() > 0)
+           QPlainTextEdit::keyPressEvent (new QKeyEvent (QEvent::KeyPress, Qt::Key_Backspace, Qt::NoModifier));
+    insertPlainText (prompt + text + "\n");    
+    text = "";
+    
+    format.setForeground(Qt::darkMagenta);
+
+    textCursor().setBlockCharFormat(format);
+    
+    if (str == "help")
+    {
+        insertPlainText ("Maze console commands help:\n"
+                         "    step - make one step of passing maze\n"
+                         "    autopass - begin autopassing maze\n"
+                         "    stop_autopassing - stop autopassing maze\n"
+                         "    generate - generate a new maze for passing\n"
+                         "    scheme - print legend for the state machine scheme\n"
+                         "    full_dump - print full dump during passing\n"
+                         "    states_dump - (default) print just states and transitions of state machine during passing\n"
+                         "    return - returning your character to the maze start point\n");
+    }
+    else 
+    if (str == "scheme")
+    {
+        insertPlainText ("Scheme states:\n"
+                         "1) Transitions from \"initialising\" state:\n"
+                         "        I - initialised. Passing from \"initialized\" to \"waiting\" state when state machine will be initialised.\n"
+                         "2) Transitions from \"waiting\" state:\n"
+                         "        C - command. Passing from \"waiting\" to \"searching way\" state\n"
+                         "            when user will give a command to state machine \n"
+                         "3) Transitions from \"searching way\" state:\n"
+                         "        L - left. Passing from \"searching way\" to \"waiting\" state\n"
+                         "            when character will find left clear tunnel and will pass to it\n"
+                         "        S - straight. Passing from \"searching way\" to \"waiting\" state\n"
+                         "            when character will find forward clear tunnel and will pass to it\n"
+                         "        R - right. Passing from \"searching way\" to \"waiting\" state\n"
+                         "            when character will right left clear tunnel and will pass to it\n"
+                         "        B - behind. Passing from \"searching way\" to \"waiting\" state\n"
+                         "            when character will find backward clear tunnel and will pass to it\n"
+                         "        F - finish found. Passing from \"searching way\" to \"finished\" state\n"
+                         "            when character will find finish\n"
+                         "4) Transitions from \"finished\" state:\n"
+                         "        A - again. Passing from \"finished\" to \"initialising\" state\n"
+                         "            when user will give a command\n");                           
+    }
+    else 
+    if (str == "step")
+    {
+        emit step ();
+        return;
+    }
+    else
+    if (str == "autopass")
+    {
+        emit autopass ();
+    }
+    else
+    if (str == "stop_autopassing")
+    {
+        emit stopAutopassing ();
+    }    
+    else
+    if (str == "generate")
+    {
+        emit generate ();
+    }  
+    else
+    if (str == "return")
+    {
+        emit returnToStart ();
+    }    
+    else
+    if (str == "full_dump")
+    {
+        emit fullDump ();
+    }
+    else
+    if (str == "states_dump")
+    {
+        emit statesDump ();
+    }
+    else
+    {
+        format.setForeground(Qt::darkRed);
+        insertPlainText ("Unknown command - \"" + str + "\"\n");
+    }
+    format.setForeground(Qt::darkRed);
+    textCursor().setBlockCharFormat(format);
+    insertPlainText (prompt);
+    moveCursor(QTextCursor::End); 
+}
+
+void Console::mousePressEvent (QMouseEvent *)
+{
+    setFocus ();
+}
+
+void Console::mouseDoubleClickEvent (QMouseEvent *)
+{
+    
+}
+
+void Console::contextMenuEvent (QContextMenuEvent *)
+{
+    
+}
 
 void Console::printText (char* text, ...)
 {
+    bool oldRead = readMode;
+    
+    readOnly (true);
+
+    format.setForeground(Qt::black);
+    textCursor().setBlockCharFormat(format);
+    
     char    compText [maxPrintTextSize] = "";
     va_list    arg;
 
@@ -472,9 +729,90 @@ void Console::printText (char* text, ...)
     moveCursor(QTextCursor::End); 
     
     va_end(arg);
+    
+    format.setForeground(Qt::darkRed);
+    textCursor().setBlockCharFormat(format);
+    readOnly (oldRead);
 }
 
+//------------------------------------------------
+//Way lighting-----------------------------------
+WayLight::WayLight (int newX, int newY, QWidget* parent) : QWidget (parent)
+{
+    setGeometry (newX, newY, CellWidth, CellHeight);
+    for (int i = 0; i < 16; i++)
+         wayData [i] = false;
+}
 
+void WayLight::clearWayCell ()
+{
+    for (int i = 0; i < 16; i++)
+         wayData [i] = false;
+}
 
+void WayLight::paintEvent (QPaintEvent*)
+{
+    QPainter painter (this);
+    painter.translate (0, 0);
+    painter.setPen    (Qt::green);
+    painter.setBrush  (Qt::NoBrush);
+    
+    if (wayData [Ways::leftUp]) painter.drawEllipse     (-CellWidth*3/4,  -CellHeight*3/4, 
+                                                         2*CellWidth*3/4, 2*CellHeight*3/4);
+    if (wayData [Ways::leftRight]) painter.drawLine     (0,               CellHeight*3/4,
+                                                         CellWidth,       CellHeight*3/4);
+    if (wayData [Ways::leftDown]) painter.drawEllipse   (-CellWidth*1/4,  CellHeight*3/4, 
+                                                         CellWidth*2/4,   CellHeight*2/4); 
+    if (wayData [Ways::leftLeft]) painter.drawEllipse   (-CellWidth,      CellHeight*1/4, 
+                                                         2*CellWidth,     CellHeight*2/4);
+                                              
+    
+    if (wayData [Ways::upRight]) painter.drawEllipse    (CellWidth*1/4,   -CellHeight*3/4, 
+                                                         2*CellWidth*3/4, 2*CellHeight*3/4);
+    if (wayData [Ways::upDown]) painter.drawLine        (CellWidth*1/4,   0,
+                                                         CellWidth*1/4,   CellHeight);
+    if (wayData [Ways::upLeft]) painter.drawEllipse     (-CellWidth*1/4,  -CellHeight*1/4, 
+                                                         CellWidth*2/4,   CellHeight*2/4); 
+    if (wayData [Ways::upUp]) painter.drawEllipse       (CellWidth*1/4,   -CellHeight, 
+                                                         CellWidth*2/4,   2*CellHeight - 2);   
+    
+    
+    if (wayData [Ways::rightDown]) painter.drawEllipse  (CellWidth*1/4,   CellHeight*1/4, 
+                                                         2*CellWidth*3/4, 2*CellHeight*3/4);
+    if (wayData [Ways::rightLeft]) painter.drawLine     (0,               CellHeight*1/4,
+                                                         CellWidth,       CellHeight*1/4);
+    if (wayData [Ways::rightUp]) painter.drawEllipse    (CellWidth*3/4,  -CellHeight*1/4, 
+                                                         CellWidth*2/4,   CellHeight*2/4); 
+    if (wayData [Ways::rightRight]) painter.drawEllipse (0,               CellHeight*1/4, 
+                                                         2*CellWidth,     CellHeight*2/4);
+    
+   
+    if (wayData [Ways::downLeft]) painter.drawEllipse   (-CellWidth*3/4,  CellHeight*1/4, 
+                                                         2*CellWidth*3/4, 2*CellHeight*3/4);
+    if (wayData [Ways::downUp]) painter.drawLine        (CellWidth*3/4,   0,
+                                                         CellWidth*3/4,   CellHeight);
+    if (wayData [Ways::downRight]) painter.drawEllipse  (CellWidth*3/4,   CellHeight*3/4, 
+                                                         CellWidth*2/4,   CellHeight*2/4); 
+    if (wayData [Ways::downDown]) painter.drawEllipse   (CellWidth*1/4,   0, 
+                                                         CellWidth*2/4,   2*CellHeight);    
+}
+
+Scheme::Scheme(QWidget* parent): QWidget(parent)
+{
+    setGeometry (620, 250, 170, 280);
+}
+
+void Scheme::paintEvent (QPaintEvent*)
+{
+    //QPixmap pic ("Finish_Scheme.png");
+
+    QPainter painter (this);
+    
+    painter.translate  (0, 0);
+    painter.setPen     (Qt::black);
+  //  painter.drawEllipse(0, 0, 170, 280);
+    painter.drawPixmap (0, 0, width(), height(), QPixmap (QCoreApplication::applicationDirPath () + "/Scheme.png"));
+    painter.drawLine   (0, 0, 170, 0);
+}
 
 #include "maze.moc"
