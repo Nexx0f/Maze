@@ -298,7 +298,8 @@ Researcher::Researcher (Maze* newMaze, Console* newConsole, QWidget* parent):
     console (newConsole),
     QWidget (parent)
 {   
-    state = ResearcherStates::initializing;
+    changeState (ResearcherStates::initialising);
+    
     detailedDump = false;
     
     console -> printText ("Researcher state - Initialising");
@@ -310,16 +311,15 @@ Researcher::Researcher (Maze* newMaze, Console* newConsole, QWidget* parent):
               
     setGeometry (maze -> mapTo (myParent, QPoint (0, 0)).x() + x * 20, maze -> mapTo (myParent, QPoint (0, 0)).y () + y * 20, CellWidth, CellHeight);
     vector = {0, -1};
-    
+    oldVector = {0, -1};
     update ();
     
     if (detailedDump) console -> printText ("Start x = %d, start y = %d\n"
                                             "Start direction vector = {0, -1}");
     
-    state = ResearcherStates::waiting;
+    changeState (ResearcherStates::findLeft);
     
-    console -> printText ("State - {initialising -> waiting}. Transition - initialised\n"
-                          "Researcher state - Waiting");
+    console -> printText ("State - {0:initialising -> 1:findLeft}. Transition - initialised\n");
 }
 
 void Researcher::updatePosition (int newX, int newY)
@@ -375,117 +375,177 @@ void Researcher::paintEvent (QPaintEvent*)
    // painter.drawPolygon (points2, 3);
 }
 
-void Researcher::processStep ()
+bool Researcher::FindLeft ()
 {
-    if (state == ResearcherStates::waiting)
-    {  
-        state = ResearcherStates::searchingWay;
-        
-        console -> printText ("State - {waiting -> searching way}. Transition - command.");
-        console -> printText ("Researcher state - Searching way...");
-        
-        Vector oldVector = vector;
-        
-        int cell = 0;
-        
-        if (maze -> getLeftCell    (x, y, vector) -> state != CellStates::wall)
-        {
-            int newVectorX = (maze -> getLeftCell    (x, y, vector) -> x - 1)/CellWidth  - x; 
-            int newVectorY = (maze -> getLeftCell    (x, y, vector) -> y - 1)/CellHeight - y;
-            vector = {newVectorX, newVectorY};
-            cell = 1;
-        }
-        else
-        if (maze -> getForwardCell (x, y, vector) -> state != CellStates::wall)
-        {
-            cell = 2;
-        }
-        else
-        if (maze -> getRightCell   (x, y, vector) -> state != CellStates::wall)
-        {
-            int newVectorX = (maze -> getRightCell    (x, y, vector) -> x - 1)/CellWidth - x; 
-            int newVectorY = (maze -> getRightCell    (x, y, vector) -> y - 1)/CellHeight - y;
-            vector = {newVectorX, newVectorY};
-            cell = 3;
-        }  
-        else
-        {
-            vector.x *= -1;
-            vector.y *= -1;
-            cell = 4;
-        }
-        
-        //A lot of "ifs" to check all variants of walking in the maze
-        //I'm really sorry =(
-        
-        if ((oldVector.x == 1  && oldVector.y == 0)  &&
-            (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::leftUp] = true;}
-        if ((oldVector.x == 1  && oldVector.y == 0)  &&
-            (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::leftRight] = true;}
-        if ((oldVector.x == 1  && oldVector.y == 0)  &&
-            (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::leftDown] = true;}
-        if ((oldVector.x == 1  && oldVector.y == 0)  &&
-            (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::leftLeft] = true;}     
+    if (maze -> getLeftCell    (x, y, vector) -> state != CellStates::wall)
+    {
+        int newVectorX = (maze -> getLeftCell    (x, y, vector) -> x - 1)/CellWidth  - x; 
+        int newVectorY = (maze -> getLeftCell    (x, y, vector) -> y - 1)/CellHeight - y;
+        oldVector = vector;
+        vector = {newVectorX, newVectorY};
             
-        if ((oldVector.x == 0  && oldVector.y == 1)  &&
-            (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::upRight] = true;}
-        if ((oldVector.x == 0  && oldVector.y == 1)  &&
-            (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::upDown] = true;}
-        if ((oldVector.x == 0  && oldVector.y == 1)  &&
-            (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::upLeft] = true;}
-        if ((oldVector.x == 0  && oldVector.y == 1)  &&
-            (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::upUp] = true;}             
+        console -> printText ("State - {1:findLeft -> 5:step}. Transition - Left way was found");
+        changeState (ResearcherStates::step);
+        return true;
+    }
+    else
+    {
+        console -> printText ("State - {1:findLeft -> 2:findForward}. Transition - Left way was not found");
+        changeState (ResearcherStates::findForward);
+        return false;
+    }
+}
 
-        if ((oldVector.x == -1 && oldVector.y == 0)  &&
-            (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::rightDown] = true;}
-        if ((oldVector.x == -1 && oldVector.y == 0)  &&
-            (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::rightLeft] = true;}
-        if ((oldVector.x == -1 && oldVector.y == 0)  &&
-            (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::rightUp] = true;}
-        if ((oldVector.x == -1 && oldVector.y == 0)  &&
-            (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::rightRight] = true;}   
+bool Researcher::FindForward ()
+{
+    if (maze -> getForwardCell (x, y, vector) -> state != CellStates::wall)
+    {
+        oldVector = vector;
             
-        if ((oldVector.x == 0  && oldVector.y == -1) &&
-            (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::downLeft] = true;}
-        if ((oldVector.x == 0  && oldVector.y == -1) &&
-            (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::downUp] = true;}
-        if ((oldVector.x == 0  && oldVector.y == -1) &&
-            (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::downRight] = true;}
-        if ((oldVector.x == 0  && oldVector.y == -1) &&
-            (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::downDown] = true;}            
-        
-        updatePosition (x + vector.x, y + vector.y);    
-        
-        
-        if (maze -> getPositionCell(x, y) -> state == CellStates::finish)
-        {
-            state = ResearcherStates::finishFound;
+        console -> printText ("State - {2:findForward -> 5:step}. Transition - forward way was found");
+        changeState (ResearcherStates::step);
+        return true;
+    }
+    else
+    {
+        console -> printText ("State - {2:findForward -> 3:findRight}. Transition - Forward way was not found");
+        changeState (ResearcherStates::findRight);
+        return false;
+    }
+}
+
+bool Researcher::FindRight ()
+{
+    if (maze -> getRightCell   (x, y, vector) -> state != CellStates::wall)
+    {
+        int newVectorX = (maze -> getRightCell    (x, y, vector) -> x - 1)/CellWidth - x; 
+        int newVectorY = (maze -> getRightCell    (x, y, vector) -> y - 1)/CellHeight - y;
+        oldVector = vector;
+        vector = {newVectorX, newVectorY};
             
-            if (detailedDump) console -> printText ("FINISH FOUND----\n"
-                                                    "Researcher state - finish found\n"
-                                                    "Finish x = %d, Finish y = %d\n", x, y);
+        console -> printText ("State - {3:findRight -> 5:step}. Transition - Right way found");
+        changeState (ResearcherStates::step);
+        return true;
+    }
+    else
+    {
+        console -> printText ("State - {3:findRight -> 4:findBackward}. Transition - Right way not found");
+        changeState (ResearcherStates::findBackward);
+        return true;
+    }
+}
+
+bool Researcher::FindBackward ()
+{
+    if (maze -> getForwardCell   (x, y, Vector (vector.x * -1, vector.y * -1)) -> state != CellStates::wall)
+    {
+        oldVector = vector;
+        vector.x *= -1;
+        vector.y *= -1;
+
+        console -> printText ("State - {4:findBackward -> 5:step}. Transition - Backward way was found");
+        changeState (ResearcherStates::step);
+        return true;
+    }
+}
+
+bool Researcher::Step ()
+{
+    //A lot of "ifs" to check all variants of walking in the maze
+    //I'm really sorry =(
             
-            emit researcherFoundFinish ();
-            
-            return;
-        }
+    if ((oldVector.x == 1  && oldVector.y == 0)  &&
+        (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::leftUp] = true;}
+    if ((oldVector.x == 1  && oldVector.y == 0)  &&
+        (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::leftRight] = true;}
+    if ((oldVector.x == 1  && oldVector.y == 0)  &&
+        (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::leftDown] = true;}
+    if ((oldVector.x == 1  && oldVector.y == 0)  &&
+        (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::leftLeft] = true;}     
+                
+    if ((oldVector.x == 0  && oldVector.y == 1)  &&
+        (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::upRight] = true;}
+    if ((oldVector.x == 0  && oldVector.y == 1)  &&
+        (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::upDown] = true;}
+    if ((oldVector.x == 0  && oldVector.y == 1)  &&
+        (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::upLeft] = true;}
+    if ((oldVector.x == 0  && oldVector.y == 1)  &&
+        (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::upUp] = true;}             
+
+    if ((oldVector.x == -1 && oldVector.y == 0)  &&
+        (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::rightDown] = true;}
+    if ((oldVector.x == -1 && oldVector.y == 0)  &&
+        (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::rightLeft] = true;}
+    if ((oldVector.x == -1 && oldVector.y == 0)  &&
+        (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::rightUp] = true;}
+    if ((oldVector.x == -1 && oldVector.y == 0)  &&
+        (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::rightRight] = true;}   
+                
+    if ((oldVector.x == 0  && oldVector.y == -1) &&
+        (vector.x    == -1 && vector.y    == 0))  {journey [x][y] -> wayData [Ways::downLeft] = true;}
+    if ((oldVector.x == 0  && oldVector.y == -1) &&
+        (vector.x    == 0  && vector.y    == -1)) {journey [x][y] -> wayData [Ways::downUp] = true;}
+    if ((oldVector.x == 0  && oldVector.y == -1) &&
+        (vector.x    == 1  && vector.y    == 0))  {journey [x][y] -> wayData [Ways::downRight] = true;}
+    if ((oldVector.x == 0  && oldVector.y == -1) &&
+        (vector.x    == 0  && vector.y    == 1))  {journey [x][y] -> wayData [Ways::downDown] = true;}            
         
+    updatePosition (x + vector.x, y + vector.y);    
+        
+        
+    if (maze -> getPositionCell(x, y) -> state == CellStates::finish)
+    {
+        console -> printText ("State - {5:step -> 6:finishFound}. Transition - Finish was found");
+        changeState (ResearcherStates::finishFound);
+            
+        if (detailedDump) console -> printText ("FINISH FOUND----\n"
+                                                "Researcher state - finish found\n"
+                                                "Finish x = %d, Finish y = %d\n", x, y);
+            
+        emit researcherFoundFinish ();
+            
+        return true;
+     }
+     else
+     {
         if (detailedDump) console -> printText ("Researcher updated\n"
                                                 "New x = %d, new y = %d. "
                                                 "Direction vector = {%d, %d}", x, y, vector.x, vector.y);   
-        
-        state = ResearcherStates::waiting;
-        
-        if (cell == 1) console -> printText ("State - {searching way -> waiting}. Transition - Left");
-        else
-        if (cell == 2) console -> printText ("State - {searching way -> waiting}. Transition - Straight");
-        else
-        if (cell == 3) console -> printText ("State - {searching way -> waiting}. Transition - Right");
-        else           console -> printText ("State - {searching way -> waiting}. Transition - Behind");
-        
-        console -> printText ("Researcher state - waiting...");
+            
+        console -> printText ("State - {5:step -> 1:findLeft}. Transition - Finish was not found");
+        changeState (ResearcherStates::findLeft);
+        return false;
+     }
+}
+
+
+void Researcher::processStep ()
+{   
+    if (state == ResearcherStates::findLeft)
+    {
+        FindLeft ();
+    }    
+    else
+    if (state == ResearcherStates::findForward)
+    {
+        FindForward ();
     }
-    
+    else
+    if (state == ResearcherStates::findRight)
+    {
+        FindRight ();
+    }
+    else
+    if (state == ResearcherStates::findBackward) 
+    {
+        FindBackward ();
+    }
+    else
+    if (state == ResearcherStates::step)
+    {
+        Step ();
+    }
+    else
     if (state == ResearcherStates::finishFound)
     {
         //Nothing to do
@@ -500,24 +560,29 @@ void Researcher::generateMaze()
     
     maze -> generate ();
     
-    state = ResearcherStates::initializing;
+    changeState (ResearcherStates::initialising);
+    
+    console -> printText ("\nState - inialised. Transition - Generate button was pushed");
     
     updatePosition (maze -> getStartPoint().x(), maze -> getStartPoint().y());
     clearJourney ();
     vector = {0, -1};
-    state = ResearcherStates::waiting;    
+    
+    console -> printText ("State - {initialised -> findLeft}. Transition - initialised");
+    
+    changeState (ResearcherStates::findLeft);    
     
 }
 
 void Researcher::returnToStart()
 {    
-    state = ResearcherStates::initializing;
+    changeState (ResearcherStates::initialising);
     
     updatePosition (maze -> getStartPoint().x(), maze -> getStartPoint().y());
     clearJourney ();
     vector = {0, -1};
-    state = ResearcherStates::waiting;    
     
+    changeState (ResearcherStates::findLeft);   
 }
 
 void Researcher::clearJourney ()
@@ -540,6 +605,11 @@ void Researcher::notSimpleDump()
     detailedDump = true;
 }
 
+void Researcher::changeState (const int newState)
+{
+    state = newState;
+    emit stateChanged (state);
+}
 
 
 Researcher::~Researcher ()
@@ -557,6 +627,8 @@ Console::Console (QWidget* parent) : QPlainTextEdit (parent)
     setPalette (palette);
     
     format.setForeground (Qt::darkRed);
+    
+    history = new QStringList ();
     
     insertPlainText (prompt);
     
@@ -596,12 +668,93 @@ void Console::keyPressEvent (QKeyEvent* event)
         QPlainTextEdit::keyPressEvent(event);
     }
     if(event->key() == Qt::Key_Return && event->modifiers() == Qt::NoModifier)
-        onEnter();    
+        onEnter();
+    
+    if(event->key() == Qt::Key_Up && event->modifiers() == Qt::NoModifier)
+        backHistory();
+    
+    if(event->key() == Qt::Key_Down && event->modifiers() == Qt::NoModifier)
+        forwardHistory();    
+}
+
+void Console::addHistory(QString cmd)
+{
+    if (!history -> isEmpty ()) history -> pop_back ();
+    history -> append(cmd);
+    history -> append("");
+    historyPos = history->length();
+}
+
+void Console::backHistory()
+{
+    if(!historyPos)
+        return;
+    QTextCursor cursor = textCursor();
+    cursor.movePosition            (QTextCursor::StartOfBlock);
+    cursor.movePosition            (QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    cursor.removeSelectedText      ();
+    
+    if(historyPos == 0)
+    {
+        cursor.insertText(prompt);
+        return;
+    }
+    else
+        cursor.insertText(prompt + history -> at (historyPos - 1));
+    
+    if (historyPos == history -> length ()) historyPos--;
+    
+    text = history -> at (historyPos - 1);
+    setTextCursor(cursor);
+    historyPos--;
+}
+
+void Console::forwardHistory()
+{
+    if(historyPos == history->length())
+        return;
+    QTextCursor cursor = textCursor();
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    cursor.removeSelectedText();
+    if(historyPos == history->length() - 1)
+    {
+        cursor.insertText(prompt);
+        return;
+    }
+    else
+        cursor.insertText(prompt + history->at(historyPos + 1));
+    text = history -> at (historyPos + 1);
+    setTextCursor(cursor);
+    historyPos++;
+}
+
+void Console::insertAbout (bool setColor)
+{
+    while (textCursor().positionInBlock() > 0)
+          QPlainTextEdit::keyPressEvent (new QKeyEvent (QEvent::KeyPress, Qt::Key_Backspace, Qt::NoModifier));
+    format.setForeground(Qt::darkMagenta);
+
+    textCursor().setBlockCharFormat(format);
+    
+    insertPlainText("\n"
+                    "      About:\n"
+                    "Developer - Pimkin Artem\n"
+                    "Developed with help of:\n"
+                    " Ilya Dedinsky\n\n\n");
+    if (setColor)
+    {
+        format.setForeground(Qt::darkRed);
+        textCursor().setBlockCharFormat(format);
+        insertPlainText (prompt);
+        moveCursor(QTextCursor::End);
+    }
 }
 
 void Console::onEnter ()
 {
     QString str = text;
+    addHistory (text);
     
     while (textCursor().positionInBlock() > 0)
            QPlainTextEdit::keyPressEvent (new QKeyEvent (QEvent::KeyPress, Qt::Key_Backspace, Qt::NoModifier));
@@ -612,41 +765,54 @@ void Console::onEnter ()
 
     textCursor().setBlockCharFormat(format);
     
+    
     if (str == "help")
     {
         insertPlainText ("Maze console commands help:\n"
                          "    step - make one step of passing maze\n"
                          "    autopass - begin autopassing maze\n"
-                         "    stop_autopassing - stop autopassing maze\n"
+                         "    stop - stop autopassing maze\n"
                          "    generate - generate a new maze for passing\n"
                          "    scheme - print legend for the state machine scheme\n"
                          "    full_dump - print full dump during passing\n"
                          "    states_dump - (default) print just states and transitions of state machine during passing\n"
-                         "    return - returning your character to the maze start point\n");
+                         "    return - returning your character to the maze start point\n"
+                         "    about - print message about programm and author\n");
     }
     else 
+    if (str == "about")
+    {
+        insertAbout (false);
+    }
+    else
     if (str == "scheme")
     {
-        insertPlainText ("Scheme states:\n"
-                         "1) Transitions from \"initialising\" state:\n"
-                         "        I - initialised. Passing from \"initialized\" to \"waiting\" state when state machine will be initialised.\n"
-                         "2) Transitions from \"waiting\" state:\n"
-                         "        C - command. Passing from \"waiting\" to \"searching way\" state\n"
-                         "            when user will give a command to state machine \n"
-                         "3) Transitions from \"searching way\" state:\n"
-                         "        L - left. Passing from \"searching way\" to \"waiting\" state\n"
-                         "            when character will find left clear tunnel and will pass to it\n"
-                         "        S - straight. Passing from \"searching way\" to \"waiting\" state\n"
-                         "            when character will find forward clear tunnel and will pass to it\n"
-                         "        R - right. Passing from \"searching way\" to \"waiting\" state\n"
-                         "            when character will right left clear tunnel and will pass to it\n"
-                         "        B - behind. Passing from \"searching way\" to \"waiting\" state\n"
-                         "            when character will find backward clear tunnel and will pass to it\n"
-                         "        F - finish found. Passing from \"searching way\" to \"finished\" state\n"
-                         "            when character will find finish\n"
-                         "4) Transitions from \"finished\" state:\n"
-                         "        A - again. Passing from \"finished\" to \"initialising\" state\n"
-                         "            when user will give a command\n");                           
+        insertPlainText ("Scheme transitions:\n"
+                         "0) Transitions from \"0:Initialising\" state:\n"
+                         "        a) Passing from \"0:Initialising\" to \"1:FindLeft\" state when state machine will be initialised.\n"
+                         "1) Transitions from \"1:FindLeft\" state:\n"
+                         "        a) Passing from \"1:FindLeft\" to \"2:FindForward\" state"
+                                    " when left clear cell will be not found.\n"
+                         "        b) Passing from \"1:FindLeft\" to \"5:Step\" state"
+                                    " when left clear cell will be found.\n"
+                         "2) Transitions from \"2:FindForward\" state:\n"
+                         "        a) Passing from \"2:FindForward\" to \"3:FindRight\" state"
+                                    " when forward clear cell will be not found.\n"
+                         "        b) Passing from \"2:FindLeft\" to \"5:Step\" state"
+                                    " when forward clear cell will be found.\n"
+                         "3) Transitions from \"3:FindRight\" state:\n"
+                         "        a) Passing from \"3:FindRight\" to \"4:FindBackward\" state"
+                                    " when right clear cell will be not found.\n"
+                         "        b) Passing from \"3:FindRight\" to \"5:Step\" state"
+                                    " when right clear cell will be found.\n"
+                         "4) Transitions from \"4:FindBackward\" state:\n"
+                         "        a) Passing from \"4:FindBackward\" to \"5:Step\" state"
+                                     " when backward clear cell will be found.\n" 
+                         "5) Transitions from \"5:Step\" state:\n"
+                         "        a) Passing from \"5:Step\" to \"1:FindLeft\" state"
+                                    " when finish cell will be not found.\n"
+                         "        b) Passing from \"5:Step\" to \"6:FinishFound\" state"
+                                    " when finish cell will be found.\n");                           
     }
     else 
     if (str == "step")
@@ -660,7 +826,7 @@ void Console::onEnter ()
         emit autopass ();
     }
     else
-    if (str == "stop_autopassing")
+    if (str == "stop")
     {
         emit stopAutopassing ();
     }    
@@ -668,6 +834,7 @@ void Console::onEnter ()
     if (str == "generate")
     {
         emit generate ();
+        return;
     }  
     else
     if (str == "return")
@@ -797,10 +964,40 @@ void WayLight::paintEvent (QPaintEvent*)
                                                          CellWidth*2/4,   2*CellHeight);    
 }
 
-Scheme::Scheme(QWidget* parent): QWidget(parent)
+Scheme::Scheme(QWidget* parent): QWidget (parent)
 {
     setGeometry (620, 250, 170, 280);
+    schemeImage = new QPixmap (QCoreApplication::applicationDirPath () + "/Initialising_Scheme.png");
 }
+
+void Scheme::researcherStateChanged (int newState)
+{
+    delete schemeImage;
+    
+    if (newState == ResearcherStates::initialising) 
+        schemeImage = new QPixmap (QCoreApplication::applicationDirPath () + "/Initialising_Scheme.png");
+    else
+    if (newState == ResearcherStates::findLeft) 
+        schemeImage = new QPixmap (QCoreApplication::applicationDirPath () + "/FindLeft_Scheme.png");
+    else   
+    if (newState == ResearcherStates::findForward) 
+        schemeImage = new QPixmap (QCoreApplication::applicationDirPath () + "/FindForward_Scheme.png");
+    else        
+    if (newState == ResearcherStates::findRight) 
+        schemeImage = new QPixmap (QCoreApplication::applicationDirPath () + "/FindRight_Scheme.png");
+    else
+    if (newState == ResearcherStates::findBackward) 
+        schemeImage = new QPixmap (QCoreApplication::applicationDirPath () + "/FindBackward_Scheme.png");
+    else
+    if (newState == ResearcherStates::step) 
+        schemeImage = new QPixmap (QCoreApplication::applicationDirPath () + "/Step_Scheme.png");
+    else        
+    if (newState == ResearcherStates::finishFound) 
+        schemeImage = new QPixmap (QCoreApplication::applicationDirPath () + "/FinishFound_Scheme.png");  
+    
+    update();    
+}
+
 
 void Scheme::paintEvent (QPaintEvent*)
 {
@@ -810,9 +1007,13 @@ void Scheme::paintEvent (QPaintEvent*)
     
     painter.translate  (0, 0);
     painter.setPen     (Qt::black);
+    
+    painter.setRenderHint (QPainter::SmoothPixmapTransform);
+    
+    painter.drawPixmap (0, 0, width(), height(), *schemeImage);
+    
   //  painter.drawEllipse(0, 0, 170, 280);
-    painter.drawPixmap (0, 0, width(), height(), QPixmap (QCoreApplication::applicationDirPath () + "/Scheme.png"));
-    painter.drawLine   (0, 0, 170, 0);
+
 }
 
 #include "maze.moc"

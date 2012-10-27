@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QPlainTextEdit>
 #include <QPalette>
+#include <QStringList>
 
 const int CellWidth  = 20;
 const int CellHeight = 20;
@@ -20,10 +21,13 @@ namespace CellStates
 
 namespace ResearcherStates
 {
-    const int searchingWay = 0;
-    const int finishFound  = 1;
-    const int initializing = 2;
-    const int waiting      = 3;
+    const int initialising = 0;
+    const int findLeft     = 1;
+    const int findForward  = 2;
+    const int findRight    = 3;
+    const int findBackward = 4;
+    const int step         = 5;
+    const int finishFound  = 6;
 }
 
 namespace Ways
@@ -50,6 +54,9 @@ struct Vector
 {
     int x;
     int y;
+    
+    Vector (int nx, int ny): x (nx), y (ny) {}
+    Vector () {}
 };
 
 class Console : public QPlainTextEdit
@@ -63,6 +70,12 @@ class Console : public QPlainTextEdit
       void contextMenuEvent      (QContextMenuEvent *);
       void readOnly              (bool read);
       void onEnter               ();
+      QStringList* history;
+      int historyPos;
+      
+      void addHistory            (QString cmd);
+      void backHistory           ();
+      void forwardHistory        ();
       
       QString text;
       QString prompt;
@@ -73,6 +86,9 @@ class Console : public QPlainTextEdit
     
     public:
       Console (QWidget* parent);
+    
+    public slots:
+      void insertAbout     (bool setColor = true);
       
     signals:
       void step            ();
@@ -124,6 +140,7 @@ class Maze : public QWidget
       int          cellDataX;
       int          cellDataY;
       MazeCell*    cellData [30][25];
+      
     public:  
                    Maze            (int xMax, int yMax, QWidget* parent);
       virtual      ~Maze           ();
@@ -142,10 +159,14 @@ class Scheme : public QWidget
 {
     Q_OBJECT
     public:
-      Scheme (QWidget* parent);
+      QPixmap*     schemeImage; 
+        
+                   Scheme      (QWidget* parent);
       
-      virtual void paintEvent (QPaintEvent*);
+      virtual void paintEvent  (QPaintEvent*);
       
+    public slots:
+      void researcherStateChanged (int newState);
 };
 
 class Researcher : public QWidget
@@ -156,11 +177,20 @@ class Researcher : public QWidget
       int          y;
       Maze*        maze;
       int          state;
-      Vector       vector;   
+      Vector       vector;  
+      Vector       oldVector;
       Console*     console;
       WayLight*    journey [30][25];
       bool         detailedDump;
       QWidget*     myParent;
+      
+      bool         FindLeft       ();
+      bool         FindForward    ();
+      bool         FindRight      ();
+      bool         FindBackward   ();
+      bool         Step           ();
+      
+      void         changeState    (const int newState);
       
                    Researcher     (Maze* newMaze, Console* newConsole, QWidget* parent);
       virtual      ~Researcher    ();
@@ -179,6 +209,7 @@ class Researcher : public QWidget
       
     signals:
       void         researcherFoundFinish ();
+      void         stateChanged (int newState);
     
 };
 
