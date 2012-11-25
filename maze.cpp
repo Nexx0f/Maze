@@ -431,7 +431,7 @@ bool Researcher::FindRight ()
     {
         console -> printText ("State - {3:findRight -> 4:findBackward}. Transition - Right way not found");
         changeState (ResearcherStates::findBackward);
-        return true;
+        return false;
     }
 }
 
