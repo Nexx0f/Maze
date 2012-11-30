@@ -1,6 +1,3 @@
-
-// <--- This file is machine generated, DO NOT EDIT! --->
-
 //--------------------------------------------------
 //
 //! Automata.cpp
@@ -29,7 +26,6 @@ static struct AutomataData g_AutomataData = {28};
 void Automaton_Researcher (int event_num, Researcher* researcher)
 {
 	int old_y = g_AutomataData.y_Researcher;
-	QTextStream out (stdout);
         bool found = false;
         
 	switch (g_AutomataData.y_Researcher)
@@ -71,10 +67,6 @@ void Automaton_Researcher (int event_num, Researcher* researcher)
 		case 7:
 			/*4: FindBackward*/
 			found = researcher -> FindBackward ();
-                        
-                        
-                        out << "FindBackward was called\n";
-                        
 			if (found)
 			{
 				
@@ -103,16 +95,13 @@ void Automaton_Researcher (int event_num, Researcher* researcher)
 		case 6:
 			/*3: FindRight*/
 			found = researcher -> FindRight ();
-                        out << "FindRight called\n";
 			if (!found)
 			{
-				out << "Calling FindRight\n";
 				g_AutomataData.y_Researcher = 7;
 			}
 			
 			else if (found)
-			{
-				out << "Calling Step\n";
+			{	
 				g_AutomataData.y_Researcher = 12;
 			}
 			
