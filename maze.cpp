@@ -431,7 +431,7 @@ bool Researcher::FindRight ()
     {
         console -> printText ("State - {3:findRight -> 4:findBackward}. Transition - Right way not found");
         changeState (ResearcherStates::findBackward);
-        return true;
+        return false;
     }
 }
 
@@ -633,6 +633,9 @@ Console::Console (QWidget* parent) : QPlainTextEdit (parent)
     insertPlainText (prompt);
     
     text   = "";
+    
+    ticksBefore = 0;
+    currentCmd = 0;
 }
 
 void Console::readOnly (bool read)
@@ -751,6 +754,101 @@ void Console::insertAbout (bool setColor)
     }
 }
 
+void Console::processScript ()
+{
+    if (ticksBefore > 0) 
+    {
+        ticksBefore--;
+        return;
+    }
+    
+    if (currentCmd == commandsToDo.size() - 1)
+    {
+        emit scriptDone ();
+        return;
+    }
+    
+    QString command;
+    QString arg;
+    
+    while (commandsToDo [currentCmd] != ' ') 
+    {
+        command += commandsToDo [currentCmd];
+        currentCmd++;
+    }
+    currentCmd += 1;
+    
+    if (command == "step")
+    {
+        emit step ();
+    }
+    else 
+    if (command == "autopass")
+    {
+        emit autopass ();
+    }
+    else
+    if (command == "stop")
+    {
+        emit stopAutopassing ();
+    }    
+    else
+    if (command == "generate")
+    {
+        emit generate ();
+        return;
+    }  
+    else
+    if (command == "return")
+    {
+        emit returnToStart ();
+    }    
+    else
+    if (command == "full_dump")
+    {
+        emit fullDump ();
+    }
+    else
+    if (command == "states_dump")
+    {
+        emit statesDump ();
+    }    
+    else
+    if (command == "sleep")
+    {
+        while (commandsToDo [currentCmd] != ' ') 
+        {
+            arg += commandsToDo [currentCmd];
+            currentCmd++;
+        } 
+        
+        int num = 0;
+        QByteArray argx = arg.toAscii();
+        for (int i = 0; i < arg.size(); i++)
+        {
+             num = num*10 + argx[i] - '0';
+        }
+        
+        ticksBefore = num;
+        currentCmd++;
+    }
+    else 
+    if (command == "echo")
+    {
+        currentCmd++;
+        while (commandsToDo [currentCmd] != '"') 
+        {
+            arg += commandsToDo [currentCmd];
+            currentCmd++;
+        }   
+        
+        currentCmd += 2;
+        QByteArray textToPrint1 = arg.toAscii ();
+        char* textToPrint = textToPrint1.data();
+        printText(textToPrint);
+    }
+}
+
 void Console::onEnter ()
 {
     QString str = text;
@@ -853,8 +951,39 @@ void Console::onEnter ()
     }
     else
     {
-        format.setForeground(Qt::darkRed);
-        insertPlainText ("Unknown command - \"" + str + "\"\n");
+        if (str [0] == 's' && str [1] == 'c' &&
+            str [2] == 'r' && str [3] == 'i' &&
+            str [4] == 'p' && str [5] == 't' &&
+            str [6] == ' ')
+        {
+            QString fileName;
+            for (int i = 7; i < str.size(); i++)
+                 fileName += str[i];
+            
+            QFile file (QCoreApplication::applicationDirPath () + "/" + fileName);
+            file.open (QIODevice::ReadOnly);
+            
+            QTextStream in (&file);
+            
+            while (!in.atEnd())
+            {
+                QString helpStr;
+                in >> helpStr;
+                commandsToDo += helpStr + " ";
+            }
+            
+            file.close ();
+            
+            ticksBefore = 0;
+            currentCmd = 0;
+            
+            emit script ();
+        }
+        else
+        {
+            format.setForeground(Qt::darkRed);
+            insertPlainText ("Unknown command - \"" + str + "\"\n");
+        }
     }
     format.setForeground(Qt::darkRed);
     textCursor().setBlockCharFormat(format);
