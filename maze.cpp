@@ -1,4 +1,5 @@
 #include "maze.h"
+#include "automata.h"
 
 #include <QtGui/QLabel>
 #include <QtGui/QMenu>
@@ -521,35 +522,8 @@ bool Researcher::Step ()
 
 void Researcher::processStep ()
 {   
-    if (state == ResearcherStates::findLeft)
-    {
-        FindLeft ();
-    }    
-    else
-    if (state == ResearcherStates::findForward)
-    {
-        FindForward ();
-    }
-    else
-    if (state == ResearcherStates::findRight)
-    {
-        FindRight ();
-    }
-    else
-    if (state == ResearcherStates::findBackward) 
-    {
-        FindBackward ();
-    }
-    else
-    if (state == ResearcherStates::step)
-    {
-        Step ();
-    }
-    else
-    if (state == ResearcherStates::finishFound)
-    {
-        //Nothing to do
-    }
+    using namespace automata;
+    Automaton_Researcher (28, this);
 }
 
 void Researcher::generateMaze()

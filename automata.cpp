@@ -50,7 +50,8 @@ void Automaton_Researcher (int event_num, Researcher* researcher)
 		
 		case 23:
 			/*6: FinishFound*/
-			
+			g_AutomataData.y_Researcher = 28;
+                        
 			break;
 		
 		case 0:
