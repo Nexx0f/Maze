@@ -99,9 +99,12 @@ int main(int argc, char** argv)
     buttonsLayer.setLayout (layBut);
     
     researcher -> generateMaze ();
+    myTimer* scriptTimer = new myTimer (console);
     
-    QObject::connect (&step,        SIGNAL (clicked ()),               researcher,       SLOT (processStep  ()));
-    QObject::connect (passTimer,    SIGNAL (timeout ()),               researcher,       SLOT (processStep  ()));
+    QObject::connect (&step,        SIGNAL (clicked ()),               researcher,       SLOT (processStep   ()));
+    
+    QObject::connect (passTimer,    SIGNAL (timeout ()),               researcher,       SLOT (processStep   ()));
+    QObject::connect (scriptTimer,  SIGNAL (timeout ()),               console,          SLOT (processScript ()));
     
     QObject::connect (researcher,   SIGNAL (researcherFoundFinish ()), passTimer,        SLOT (stop ()));  
     QObject::connect (researcher,   SIGNAL (stateChanged(int)),        &researchScheme,  SLOT (researcherStateChanged(int)));  
@@ -111,7 +114,7 @@ int main(int argc, char** argv)
     QObject::connect (&autopass,    SIGNAL (clicked ()),               passTimer,        SLOT (startMyTimer ())); 
     QObject::connect (&generate,    SIGNAL (clicked ()),               researcher,       SLOT (generateMaze ()));
     
-    QObject::connect (&about,       SIGNAL (clicked ()),               console,          SLOT (insertAbout ()));
+    QObject::connect (&about,       SIGNAL (clicked ()),               console,          SLOT (insertAbout  ()));
     
     QObject::connect (console,      SIGNAL (step ()),                  researcher,       SLOT (processStep   ()));
     QObject::connect (console,      SIGNAL (autopass ()),              passTimer,        SLOT (startMyTimer  ()));
@@ -120,7 +123,7 @@ int main(int argc, char** argv)
     QObject::connect (console,      SIGNAL (returnToStart()),          researcher,       SLOT (returnToStart ()));
     QObject::connect (console,      SIGNAL (fullDump()),               researcher,       SLOT (notSimpleDump ()));
     QObject::connect (console,      SIGNAL (statesDump()),             researcher,       SLOT (simpleDump    ()));
-    
+    QObject::connect (console,      SIGNAL (script()),                 scriptTimer,      SLOT (startMyTimer  ()));
     
     window.show();
     

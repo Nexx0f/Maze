@@ -11,6 +11,8 @@
 const int CellWidth  = 20;
 const int CellHeight = 20;
 
+const int MaxString = 256;
+
 namespace CellStates
 {
     const int empty  = 0;
@@ -73,6 +75,10 @@ class Console : public QPlainTextEdit
       QStringList* history;
       int historyPos;
       
+      int ticksBefore;
+      QString commandsToDo;
+      int  currentCmd;
+      
       void addHistory            (QString cmd);
       void backHistory           ();
       void forwardHistory        ();
@@ -89,6 +95,7 @@ class Console : public QPlainTextEdit
     
     public slots:
       void insertAbout     (bool setColor = true);
+      void processScript   ();
       
     signals:
       void step            ();
@@ -98,7 +105,8 @@ class Console : public QPlainTextEdit
       void returnToStart   ();
       void fullDump        ();
       void statesDump      ();
-           
+      void script          ();   
+      void scriptDone      ();
 };
 
 class WayLight : public QWidget
