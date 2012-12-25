@@ -34,7 +34,7 @@ int main(int argc, char** argv)
     console -> setGeometry (10, 520, 600, 170);
     
     console -> printText ("User, welcome to maze...\n"
-                          "Press \"generate button\"...");
+                          "Print \"script tutorial.txt\" to see how it works...");
 
     QWidget buttonsLayer;
     

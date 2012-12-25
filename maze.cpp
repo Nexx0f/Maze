@@ -302,8 +302,6 @@ Researcher::Researcher (Maze* newMaze, Console* newConsole, QWidget* parent):
     
     detailedDump = false;
     
-    console -> printText ("Researcher state - Initialising");
-    
     x  = maze -> getStartPoint().x();
     y  = maze -> getStartPoint().y(); 
     
@@ -318,8 +316,6 @@ Researcher::Researcher (Maze* newMaze, Console* newConsole, QWidget* parent):
                                             "Start direction vector = {0, -1}");
     
     changeState (ResearcherStates::findLeft);
-    
-    console -> printText ("State - {0:initialising -> 1:findLeft}. Transition - initialised\n");
 }
 
 void Researcher::updatePosition (int newX, int newY)
@@ -568,7 +564,7 @@ void Researcher::generateMaze()
     clearJourney ();
     vector = {0, -1};
     
-    console -> printText ("State - {initialised -> findLeft}. Transition - initialised");
+    console -> printText ("State - {0:initialised -> 1:findLeft}. Transition - initialised");
     
     changeState (ResearcherStates::findLeft);    
     
@@ -744,7 +740,7 @@ void Console::insertAbout (bool setColor)
                     "      About:\n"
                     "Developer - Pimkin Artem\n"
                     "Developed with help of:\n"
-                    " Ilya Dedinsky\n\n\n");
+                    " I. R. Dedinskiy\n\n\n");
     if (setColor)
     {
         format.setForeground(Qt::darkRed);
