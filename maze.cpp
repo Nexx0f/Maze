@@ -925,10 +925,15 @@ void Console::onEnter ()
     }
     else
     {
-        if (str [0] == 's' && str [1] == 'c' &&
-            str [2] == 'r' && str [3] == 'i' &&
-            str [4] == 'p' && str [5] == 't' &&
-            str [6] == ' ')
+        const int maxStringSize = 256;
+        
+        char* string = str.toAscii().data();
+        
+        char cmd [maxStringSize] = "";
+        
+        sscanf (string, "%s", cmd);
+        
+        if (!strcmp (cmd, "script"))// There was not clear code. It was fixed.
         {
             QString fileName;
             for (int i = 7; i < str.size(); i++)
